@@ -29,6 +29,7 @@ class Task(Base):
     is_life_critical = Column(Boolean, default=False)  # Meds, food, basics
     is_interesting = Column(Boolean, default=False)  # Fun stuff that pulls focus
     is_quick_win = Column(Boolean, default=False)  # Can knock out fast
+    pinned = Column(Boolean, default=False)  # Manually pinned to top
 
     def to_dict(self):
         return {
@@ -47,4 +48,5 @@ class Task(Base):
             "is_life_critical": self.is_life_critical,
             "is_interesting": self.is_interesting,
             "is_quick_win": self.is_quick_win,
+            "pinned": self.pinned,
         }

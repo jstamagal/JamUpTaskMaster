@@ -24,8 +24,74 @@ class C:
     BOLD = '\033[1m'
     END = '\033[0m'
 
-def api_call(endpoint, method="GET", data=None):
-    """Make API call"""
+def check_health():
+    """Check if backend is running"""
+    url = f"{API_BASE}/health"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=2) as response:
+            data = json.loads(response.read().decode())
+            return data.get('status') == 'ok'
+    except:
+        return False
+
+def start_backend():
+    """Try to start the backend"""
+    import subprocess
+
+    # Find project root (where run.sh lives)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    run_script = os.path.join(project_root, "run.sh")
+
+    if not os.path.exists(run_script):
+        print(f"{C.RED}Error: Can't find run.sh at {run_script}{C.END}")
+        return False
+
+    print(f"{C.YELLOW}Starting backend...{C.END}")
+    try:
+        # Run in background
+        subprocess.Popen(
+            ["bash", run_script],
+            cwd=project_root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+
+        # Wait a bit for startup
+        import time
+        for i in range(10):
+            time.sleep(1)
+            if check_health():
+                print(f"{C.GREEN}✓ Backend started{C.END}")
+                return True
+            print(f"{C.GRAY}.{C.END}", end='', flush=True)
+
+        print(f"\n{C.RED}Backend didn't start in time. Check logs manually.{C.END}")
+        return False
+    except Exception as e:
+        print(f"{C.RED}Failed to start backend: {e}{C.END}")
+        return False
+
+def api_call(endpoint, method="GET", data=None, auto_start=True):
+    """Make API call with health check"""
+    # Check health on first call
+    if not check_health():
+        if auto_start:
+            print(f"{C.YELLOW}Backend not running.{C.END}")
+            response = input(f"Start it now? [Y/n]: ").strip().lower()
+            if response in ['', 'y', 'yes']:
+                if not start_backend():
+                    sys.exit(1)
+            else:
+                print(f"{C.GRAY}Run: ./run.sh{C.END}")
+                sys.exit(1)
+        else:
+            print(f"{C.RED}Error: Can't reach API at {API_BASE}{C.END}")
+            print(f"{C.GRAY}Make sure the service is running: ./run.sh{C.END}")
+            sys.exit(1)
+
     url = f"{API_BASE}{endpoint}"
     headers = {"Content-Type": "application/json"}
 
@@ -35,7 +101,7 @@ def api_call(endpoint, method="GET", data=None):
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
 
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             return json.loads(response.read().decode())
     except urllib.error.URLError as e:
         print(f"{C.RED}Error: Can't reach API at {API_BASE}{C.END}")
@@ -259,6 +325,75 @@ def cmd_process():
     else:
         print(f"{C.GRAY}No tasks to process{C.END}")
 
+def cmd_pin(task_id):
+    """Pin task to top (set priority to 1.0)"""
+    try:
+        task_id = int(task_id)
+    except:
+        print(f"{C.RED}Invalid task ID{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"priority_score": 1.0, "pinned": True})
+    print(f"{C.RED}📌{C.END} Pinned to top: {C.GRAY}{text}{C.END}")
+
+def cmd_bump(task_id, amount=0.1):
+    """Bump priority up"""
+    try:
+        task_id = int(task_id)
+        amount = float(amount) if isinstance(amount, str) else amount
+    except:
+        print(f"{C.RED}Invalid arguments{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+    old_priority = task.get('priority_score', 0.5)
+    new_priority = min(1.0, old_priority + amount)
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"priority_score": new_priority})
+    print(f"{C.GREEN}⬆{C.END} Bumped priority: {old_priority:.2f} → {new_priority:.2f}")
+    print(f"   {C.GRAY}{text}{C.END}")
+
+def cmd_drop(task_id, amount=0.1):
+    """Drop priority down"""
+    try:
+        task_id = int(task_id)
+        amount = float(amount) if isinstance(amount, str) else amount
+    except:
+        print(f"{C.RED}Invalid arguments{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+    old_priority = task.get('priority_score', 0.5)
+    new_priority = max(0.0, old_priority - amount)
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"priority_score": new_priority})
+    print(f"{C.YELLOW}⬇{C.END} Dropped priority: {old_priority:.2f} → {new_priority:.2f}")
+    print(f"   {C.GRAY}{text}{C.END}")
+
+def cmd_prio(task_id, score):
+    """Set priority directly"""
+    try:
+        task_id = int(task_id)
+        score = float(score)
+        if not 0 <= score <= 1:
+            raise ValueError()
+    except:
+        print(f"{C.RED}Invalid arguments. Score must be 0.0-1.0{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"priority_score": score})
+    color = get_priority_color(score)
+    print(f"{color}Priority set to {score:.2f}{C.END}")
+    print(f"   {C.GRAY}{text}{C.END}")
+
 def show_help():
     """Show help"""
     print(f"""
@@ -275,6 +410,11 @@ def show_help():
   jt fo <id>         Fuck off (archive it)
   jt del <id>        Delete (asks for confirmation)
 
+  jt pin <id>        Pin task to top (priority 1.0)
+  jt bump <id> [amt] Bump priority up (default 0.1)
+  jt drop <id> [amt] Drop priority down (default 0.1)
+  jt prio <id> <val> Set priority (0.0-1.0)
+
   jt next            AI suggestion for what to do
   jt stats           Show overview
   jt process         Manually trigger processing
@@ -285,6 +425,9 @@ def show_help():
   jt add "order pillows walmart"
   jt ls
   jt md 0
+  jt pin 1           # Pin task 1 to top
+  jt bump 2 0.2      # Increase priority by 0.2
+  jt prio 3 0.8      # Set priority to 0.8
   jt po 1 7
   jt fo 2
 
@@ -342,6 +485,28 @@ def main():
         cmd_stats()
     elif cmd in ["process", "proc"]:
         cmd_process()
+    elif cmd in ["pin"]:
+        if not args:
+            print(f"{C.RED}Usage: jt pin <id>{C.END}")
+            sys.exit(1)
+        cmd_pin(args[0])
+    elif cmd in ["bump", "up"]:
+        if not args:
+            print(f"{C.RED}Usage: jt bump <id> [amount]{C.END}")
+            sys.exit(1)
+        amount = float(args[1]) if len(args) > 1 else 0.1
+        cmd_bump(args[0], amount)
+    elif cmd in ["drop", "down"]:
+        if not args:
+            print(f"{C.RED}Usage: jt drop <id> [amount]{C.END}")
+            sys.exit(1)
+        amount = float(args[1]) if len(args) > 1 else 0.1
+        cmd_drop(args[0], amount)
+    elif cmd in ["prio", "priority"]:
+        if len(args) < 2:
+            print(f"{C.RED}Usage: jt prio <id> <score>{C.END}")
+            sys.exit(1)
+        cmd_prio(args[0], args[1])
     elif cmd in ["help", "h", "-h", "--help"]:
         show_help()
     else:
