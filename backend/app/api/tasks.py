@@ -21,6 +21,7 @@ class TaskUpdate(BaseModel):
     priority_score: Optional[float] = None
     notes: Optional[str] = None
     due_by: Optional[datetime] = None
+    pinned: Optional[bool] = None
 
 
 @router.post("/tasks/capture")
@@ -118,6 +119,8 @@ async def update_task(
         task.notes = task_update.notes
     if task_update.due_by is not None:
         task.due_by = task_update.due_by
+    if task_update.pinned is not None:
+        task.pinned = task_update.pinned
 
     task.touched_at = datetime.utcnow()
 
@@ -253,3 +256,77 @@ async def get_suggestions(
     suggestions = await processor.get_suggestions(task_dicts, user_state)
 
     return {"suggestions": suggestions}
+
+
+class ChatMessage(BaseModel):
+    message: str
+    include_context: bool = True
+
+
+@router.post("/chat")
+async def chat_with_assistant(
+    chat_input: ChatMessage,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Chat with gpt-oss with full task context
+    Conversational interface for talking through tasks
+    """
+    processor = get_processor()
+
+    # Build context if requested
+    context_str = ""
+    active_tasks = []
+    if chat_input.include_context:
+        # Get active tasks
+        result = await session.execute(
+            select(Task).where(Task.status == "active")
+            .order_by(Task.priority_score.desc())
+            .limit(20)
+        )
+        active_tasks = result.scalars().all()
+
+        if active_tasks:
+            context_str = "\n# Current Active Tasks:\n\n"
+            for task in active_tasks:
+                text = task.processed_text or task.raw_input
+                priority = task.priority_score
+                flags = []
+                if task.is_life_critical:
+                    flags.append("CRITICAL")
+                if task.is_quick_win:
+                    flags.append("quick")
+                if task.pinned:
+                    flags.append("pinned")
+
+                flag_str = f" [{', '.join(flags)}]" if flags else ""
+                context_str += f"[{task.id}] [{priority:.2f}] {text}{flag_str}\n"
+
+            context_str += "\n"
+
+    # System prompt for conversational assistant
+    system_prompt = """You are a supportive task management assistant helping someone with ADHD, CPTSD, and memory issues.
+
+You have access to their current tasks and can:
+- Help them think through what to do
+- Break down overwhelming tasks
+- Offer encouragement and support
+- Suggest priorities based on their needs
+- Help them process anxiety about tasks
+
+Be conversational, supportive, and direct. No corporate speak. Be real with them."""
+
+    # Build full prompt
+    full_prompt = context_str + "User: " + chat_input.message
+
+    # Call model
+    response = await processor._call_model(
+        full_prompt,
+        system_prompt=system_prompt,
+        temperature=0.7  # More conversational
+    )
+
+    return {
+        "response": response,
+        "task_count": len(active_tasks)
+    }

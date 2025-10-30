@@ -394,6 +394,59 @@ def cmd_prio(task_id, score):
     print(f"{color}Priority set to {score:.2f}{C.END}")
     print(f"   {C.GRAY}{text}{C.END}")
 
+def cmd_chat(message=None):
+    """Interactive chat with task context"""
+    if message:
+        # Single message mode
+        print(f"{C.GRAY}Asking...{C.END}\n")
+        response = api_call("/chat", "POST", {"message": message, "include_context": True})
+        print(f"{C.CYAN}Assistant:{C.END}\n{response['response']}\n")
+        if response.get('task_count', 0) > 0:
+            print(f"{C.GRAY}(Context: {response['task_count']} tasks){C.END}\n")
+    else:
+        # Interactive mode
+        print(f"{C.BOLD}Chat with Assistant{C.END}")
+        print(f"{C.GRAY}Type 'exit' or 'quit' to end conversation{C.END}\n")
+
+        while True:
+            try:
+                user_input = input(f"{C.GREEN}You:{C.END} ").strip()
+                if user_input.lower() in ['exit', 'quit', 'q']:
+                    print(f"{C.GRAY}Goodbye!{C.END}")
+                    break
+                if not user_input:
+                    continue
+
+                response = api_call("/chat", "POST", {"message": user_input, "include_context": True})
+                print(f"\n{C.CYAN}Assistant:{C.END} {response['response']}\n")
+
+            except KeyboardInterrupt:
+                print(f"\n{C.GRAY}Goodbye!{C.END}")
+                break
+            except EOFError:
+                break
+
+def cmd_web():
+    """Open dashboard in browser"""
+    import subprocess
+
+    # Check if backend is running first
+    if not check_health():
+        print(f"{C.YELLOW}Backend not running. Starting it first...{C.END}")
+        if not start_backend():
+            sys.exit(1)
+
+    browser = os.getenv("BROWSER", "xdg-open")
+    url = f"{API_BASE}"
+
+    print(f"{C.CYAN}Opening dashboard in browser...{C.END}")
+    try:
+        subprocess.Popen([browser, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"{C.GREEN}✓{C.END} Opened {url}")
+    except Exception as e:
+        print(f"{C.RED}Failed to open browser: {e}{C.END}")
+        print(f"{C.GRAY}Open manually: {url}{C.END}")
+
 def show_help():
     """Show help"""
     print(f"""
@@ -418,6 +471,9 @@ def show_help():
   jt next            AI suggestion for what to do
   jt stats           Show overview
   jt process         Manually trigger processing
+
+  jt chat [message]  Chat with assistant (interactive if no message)
+  jt web             Open dashboard in browser
 
   jt help            Show this help
 
@@ -507,6 +563,12 @@ def main():
             print(f"{C.RED}Usage: jt prio <id> <score>{C.END}")
             sys.exit(1)
         cmd_prio(args[0], args[1])
+    elif cmd in ["chat", "talk"]:
+        # If args provided, treat as single message
+        message = " ".join(args) if args else None
+        cmd_chat(message)
+    elif cmd in ["web", "open", "dashboard"]:
+        cmd_web()
     elif cmd in ["help", "h", "-h", "--help"]:
         show_help()
     else:
