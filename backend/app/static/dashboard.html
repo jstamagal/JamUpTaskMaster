@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JamUpTaskMaster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        .task-card {
+            transition: all 0.3s ease;
+        }
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        }
+        .priority-critical { border-left: 4px solid #ef4444; }
+        .priority-high { border-left: 4px solid #f97316; }
+        .priority-medium { border-left: 4px solid #eab308; }
+        .priority-low { border-left: 4px solid #6b7280; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-critical { background: #7f1d1d; color: #fca5a5; }
+        .badge-quick { background: #065f46; color: #6ee7b7; }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-indigo-400 mb-2">JamUpTaskMaster</h1>
+            <p class="text-gray-400">Your tasks, your way</p>
+            <div class="mt-4 flex gap-4">
+                <div class="bg-gray-800 px-4 py-2 rounded-lg">
+                    <span class="text-sm text-gray-400">Active:</span>
+                    <span id="stat-active" class="text-lg font-bold text-indigo-400 ml-2">0</span>
+                </div>
+                <div class="bg-gray-800 px-4 py-2 rounded-lg">
+                    <span class="text-sm text-gray-400">Critical:</span>
+                    <span id="stat-critical" class="text-lg font-bold text-red-400 ml-2">0</span>
+                </div>
+                <div class="bg-gray-800 px-4 py-2 rounded-lg">
+                    <span class="text-sm text-gray-400">Quick Wins:</span>
+                    <span id="stat-quick" class="text-lg font-bold text-green-400 ml-2">0</span>
+                </div>
+                <button onclick="refreshTasks()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm font-medium">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- AI Suggestions -->
+        <div id="suggestions-container" class="mb-8 bg-gray-800 border border-indigo-500/30 rounded-lg p-4 hidden">
+            <h2 class="text-xl font-bold text-indigo-400 mb-3">💡 Suggestions</h2>
+            <div id="suggestions" class="text-gray-300 whitespace-pre-wrap"></div>
+        </div>
+
+        <!-- Task List -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-300 mb-4">Your Options</h2>
+            <div id="task-list" class="space-y-3">
+                <div class="text-center text-gray-500 py-8">Loading tasks...</div>
+            </div>
+        </div>
+
+        <!-- Completed Tasks (collapsed) -->
+        <div class="mt-8">
+            <button onclick="toggleCompleted()" class="text-gray-400 hover:text-gray-300 text-sm font-medium">
+                <span id="completed-toggle">▶</span> Completed Tasks (<span id="completed-count">0</span>)
+            </button>
+            <div id="completed-list" class="space-y-2 mt-3 hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+        let completedTasks = [];
+        let refreshInterval;
+
+        // Priority helpers
+        function getPriorityClass(score) {
+            if (score >= 0.9) return 'priority-critical';
+            if (score >= 0.7) return 'priority-high';
+            if (score >= 0.5) return 'priority-medium';
+            return 'priority-low';
+        }
+
+        function getPriorityLabel(score) {
+            if (score >= 0.9) return 'CRITICAL';
+            if (score >= 0.7) return 'HIGH';
+            if (score >= 0.5) return 'MEDIUM';
+            return 'LOW';
+        }
+
+        // Render tasks
+        function renderTasks() {
+            const container = document.getElementById('task-list');
+
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-8">No active tasks. Hit your hotkey to add some!</div>';
+                return;
+            }
+
+            // Sort by priority (high to low)
+            const sorted = [...tasks].sort((a, b) => b.priority_score - a.priority_score);
+
+            // Show top 10
+            const visible = sorted.slice(0, 10);
+
+            container.innerHTML = visible.map(task => `
+                <div class="task-card bg-gray-800 rounded-lg p-4 ${getPriorityClass(task.priority_score)}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-medium text-lg text-gray-100">
+                                    ${task.processed_text || task.raw_input}
+                                </span>
+                            </div>
+                            ${task.raw_input !== task.processed_text ? `
+                                <div class="text-sm text-gray-500 italic">
+                                    Original: "${task.raw_input}"
+                                </div>
+                            ` : ''}
+                            ${task.notes ? `
+                                <div class="text-sm text-gray-400 mt-1">
+                                    ${task.notes}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="flex gap-2 items-start">
+                            ${task.is_life_critical ? '<span class="badge badge-critical">LIFE CRITICAL</span>' : ''}
+                            ${task.is_quick_win ? '<span class="badge badge-quick">QUICK WIN</span>' : ''}
+                            <span class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                                ${getPriorityLabel(task.priority_score)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <div class="flex gap-3 text-sm text-gray-500">
+                            ${task.category ? `<span>📁 ${task.category}</span>` : ''}
+                            <span>Priority: ${task.priority_score.toFixed(2)}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="markDone(${task.id})" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm">
+                                Done
+                            </button>
+                            <button onclick="deleteTask(${task.id})" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderCompleted() {
+            const container = document.getElementById('completed-list');
+            const count = document.getElementById('completed-count');
+
+            count.textContent = completedTasks.length;
+
+            if (completedTasks.length === 0) {
+                container.innerHTML = '<div class="text-gray-600 text-sm">No completed tasks yet</div>';
+                return;
+            }
+
+            container.innerHTML = completedTasks.slice(0, 20).map(task => `
+                <div class="bg-gray-800/50 rounded p-2 text-sm text-gray-400 line-through">
+                    ${task.processed_text || task.raw_input}
+                </div>
+            `).join('');
+        }
+
+        // API calls
+        async function fetchTasks() {
+            try {
+                const [activeRes, doneRes, statsRes] = await Promise.all([
+                    fetch('/api/tasks?status=active&limit=50'),
+                    fetch('/api/tasks?status=done&limit=20'),
+                    fetch('/api/tasks/stats/overview')
+                ]);
+
+                const activeData = await activeRes.json();
+                const doneData = await doneRes.json();
+                const statsData = await statsRes.json();
+
+                tasks = activeData.tasks || [];
+                completedTasks = doneData.tasks || [];
+
+                // Update stats
+                document.getElementById('stat-active').textContent = statsData.by_status?.active || 0;
+                document.getElementById('stat-critical').textContent = statsData.life_critical_active || 0;
+                document.getElementById('stat-quick').textContent = statsData.quick_wins || 0;
+
+                renderTasks();
+                renderCompleted();
+            } catch (err) {
+                console.error('Error fetching tasks:', err);
+            }
+        }
+
+        async function markDone(id) {
+            try {
+                await fetch(`/api/tasks/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'done' })
+                });
+                await fetchTasks();
+            } catch (err) {
+                console.error('Error marking done:', err);
+            }
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('Delete this task?')) return;
+            try {
+                await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+                await fetchTasks();
+            } catch (err) {
+                console.error('Error deleting:', err);
+            }
+        }
+
+        async function fetchSuggestions() {
+            try {
+                const res = await fetch('/api/tasks/suggestions');
+                const data = await res.json();
+                if (data.suggestions) {
+                    document.getElementById('suggestions').textContent = data.suggestions;
+                    document.getElementById('suggestions-container').classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error('Error fetching suggestions:', err);
+            }
+        }
+
+        function toggleCompleted() {
+            const list = document.getElementById('completed-list');
+            const toggle = document.getElementById('completed-toggle');
+            if (list.classList.contains('hidden')) {
+                list.classList.remove('hidden');
+                toggle.textContent = '▼';
+            } else {
+                list.classList.add('hidden');
+                toggle.textContent = '▶';
+            }
+        }
+
+        function refreshTasks() {
+            fetchTasks();
+            fetchSuggestions();
+        }
+
+        // Auto-refresh every 30 seconds
+        refreshInterval = setInterval(fetchTasks, 30000);
+
+        // Initial load
+        fetchTasks();
+        setTimeout(fetchSuggestions, 2000);
+    </script>
+</body>
+</html>

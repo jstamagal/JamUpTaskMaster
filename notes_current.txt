@@ -1,0 +1,60 @@
+*** CLI Notes
+
+:whonestly I spoke with another neuroatypical friend and he said man, theres dozens of apps for people like us built by people who arent like us and think they
+know us. Reinforced with me that people like us *hate* app notifications and questioning. If we need the app, we know where to find it.  But he definitely told me
+please alpha it for a while, then I let him after a week or so give it a try and man honestly  if the landscape for a task manager that doesnt trigger anxiety
+and harass you or ask you questions is valid enough we may try to see what could be done about perhaps actually testing the waters and maybe i mask a post on one of the
+mental health+addiction / cptsd / anxiety areas on reddit and see if anyone is interested to give it a little beta test. Now I imagine for public consumption 
+a mobile version would be the likely. local llm would be option but also im sure theres prob some inferencee providers that itd be possible to find to link to folks that 
+wouldnt be too expensive. I meam gpt-oss sseems like its doing just fine so far, im sure theres plenty of options out there that for the traffic of this app maybe would need to
+oh I got an idea, could replace local LLM with like Smol135m or qwen 0.6 or something itty bitty. Ive been actually running local LLMs on my 4 year old samsung galaxy and I mean
+heck it can do way more than I ever thought it could. But an itty bitty model could actually cut down or help to cut down on resource usage.  Anyway im just detailing it because 
+its actually in my mind rn and i plan to save this sessionw ith you and refer back to it so i just wanna get my thoughts in the open
+
+With that said I have ideas for reasonable improements at the moment. Some would possibly be relavent more later, some since I make such a deal on choice and
+not wanting software to fuck with my choice but also in trying to get my points across about how i wanted things because im very afraid esp dealing w/ gemini and its bs
+that i give an inch and it'll automatically take the mile -- so im used to when setting something up or laying a project out trying my best to stick to exactly one thing
+and stay very rigid and black and white because the fleeting mention of something where my preferences are more fluid it'll latch onto it and come back to XZIbit bein like
+Yo I heard you breathed Oxygen so we made you a OXYGEN'd out CAR! Its got SCUBA, Welding, and everything else! All the OXYGEN needs! 
+
+So where I didnt push noise until I saw something actually working:
+  - A lot of my absolutes as I stated are more fluid. Now I am also thinking in terms of, in a week or so I wanna genuinely USE this and if I get comfortable
+  that ive got a solid concept and the ability is there for people != me to have their chocies respected just as well as I want mine respected.
+
+  So (spit it out):
+
+  Easily accessible config file AND even I, if its designed WELL and by WELL I mean the UI is navigable, and it offers an actual potential advantage over CLI or at least
+  has parity (not losing anything) I do wanna be less rigid about being able to do a little more with the web interface.  I would absolutely edit my config on a web interface
+  give me an editor but give me a reason to edit in my browser also. What would that reason be?  I hate writing config files from scratch. While I dont think there will be a million
+  config file options I acutally really *do* want to keep in mind the people that might want this are very likely control freaks. So a place in the frontend with a nice simple
+  code eidtor with pretty syntax highlighting and a *premade config file* with *examples* (projects with config files that are *just* defaults and no example of a non default config
+  i.e. more odd config.. i.e. realistically the way *I* wanna use this software.. I *would* be the odd config. So
+  - Simple code ediitor for configuration (Yaml, XML ehh bleh no, KDL? Too Rust-y? JSON? ehhhhhh ) tbd
+  - The ability to include a few sample configurations i.e. at the very least I would like to show say, my own personal config because I know defaults I think theres a few things
+  I think would be a little hard to swallow that may just be my own unique blend of crazy.
+  - We'll have some simple documentation thats accessible via the front end.  I dont wanna clutter it up because I like the concept of "hey put this on a spare screen you may have
+  old laptop, tablet, etc" it wouldnbt be a hard requirement but it would be a little difference of an experience I imagine.   So not cluttered up = At most a single, loan whaat do they call them
+  hamburger menu? the little 3 lines. Just out of hte way and not where it can easily get clicked so if you *do* have it on a out of the way laptop or tablet the cat brushing against it
+  wont necessarily bring up 10 menus.
+  So so far small settings menu with configuration 
+
+  * [User Definieable Setting] How many tasks to display on front page
+  * [Add Feature] Easily set priority from cli (me feature) or web frontend (normal people feature)
+  * [Add Feature] Pinning jt pin <int>
+  * [Opinionated] Counting starts at 0. The first item on the list should be 0. I'm happily fine with that being a little config option that defaults to 1 (current behavior) as thats normal, I am just OCD and I hate programming languages that start arrays at 1 (monsters)
+  * [UI] So whats the easiest and most intuitive way to bump something manually up in priority? or down? Personally I think (please God dont ever trust me on UI unless its honestly good) the most intuitive way would be toggle however. Important to be 100% kb navigable. I don't click --
+    - I use landmark navigation and link hints in browser. I rarely if ever use a mouse unless a webpage forces me to. A lot of people with disabilities also do same. Research how to do some of these things where
+    - I usually just use link hints but will use landmark navigation sometimes too. Link hits = I hit a key and every clickable area of the entire screen gets labled AA - ZZ essentially.  TO my understanding theres ways that
+    - you can make this work way better when coding the webpage but it still works pretty good even if no consideration was taken
+  * So ive been actually so busy today a lot of life stuff and also ive actually been doing a few tasks from my tasks ive been enetering I havent really gotten to really get into how well it works in jt yet but
+    The second *biggest* like absolute biggest thing I wanted this for I havent even been able to try yet -- jt as my web surfing companion. Thats one of the biggest time sinks I get into. Now, i'm unemployed and disabled and I have no obligations really however,
+    I do like to use my time reather effectively.  What I said earlier about how I want to do the Laundry... well I see a cool project on GH or I wanna try this software out or I got a little project idea so I set up this environment and then while setting it up I realize I wanna make a new config for something and then while im doing that I.... and so on and so on. One night I actually backtracked myself, I was so far removed from where I started I was 14 *full entire tasks* away from where I originally started. And the ride was great, I played around with a lot of things, but all that happened is i added 14 more indcomplete half done things to my graveyard. And I do this. Daily. Probably tens of thousands of half started little software explorations or little projects that after im up 16 - 20 hours straight and suddenly im 15 kevin bacons away from the original task I dont give a shit about why I started or I am too exhausted and after I sleep my brain reboots and ill never ever think of it again.
+    So id love to be able to use jh to keep me kinda on track, kinda be a smarter bookmark, from the start this was my intent so I wouldnt call it secondary functionality I would still say primary functionality.
+    [Future Idea] So at least for someone like me that literally you could know *exactly* what they're doing from their .bash_history and chrome history -- The other main function I had in my vision for this
+    is if theres regular "snapshots" i.e. at 20:00 i have 5 browser windows open with dozen tabs each because im a niri guy and I just kinda let it scroll away lol BUT each hour if you just do a simple diff 20:00 vs 21:00 my shell history and my browser history or tabs or whatever, its very simple to get an exact idea of how my mind is meandering. Cuz after about 8pm my roommate who gets up ass early
+    goes to bed and I dont do any more noisy tasks. Thats hacky time. Now dont get that hung up that is NOT specific. Just me generalizing. But theres a rhyme and reason to what browser history and shell history would tell you. If I bounced from say.. reddit to github to checking out lima to checking out a discussion about how to integrate lima and distrobox and then i am on a repo with this, and then you can see me on search engines debugging errors, then maybe I got frustrated and switched gears.. anyway, building a little bit better of a "what did I do yesterday" so if I can see daily what I am doing the previous day, maybe I can decide "oh id like to pick back up <here>" where i got distracted or i can say nope this night was cursed never again i foguth with gemini for 6 hours over a bash script
+    either way even maybe lacking yet a way to definitively *do* something with this, just *seeiong* it and then being able to say, go thru my not TO-do but my DID-do list and then adding things from it perhaps TO my TO-do because if I really get focussed as I often really go in a trance for 8-12 hours just hackin
+    i aint messin with any todo list during that time im literally hypnotised.
+
+    Anyway ok I had to get all this out out of my head. Theres a lot of other little ideas. but i get this out of my head so I can start measuring this TV I bought from walmart and I have many other things im actually doing ATM so jsut churn on this. I give you permission to do anything that isnt rm -rf /, deleting my repo, or using 'nano' as the example editor in any documentation whatsoever 
+    

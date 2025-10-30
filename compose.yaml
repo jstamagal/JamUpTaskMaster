@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: jamup-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:z
+      - ./config:/app/config:z
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/tasks.db
+      - TASK_MODEL=gpt-oss-20b-assistant:latest
+      - OLLAMA_API_BASE=http://host.containers.internal:11434
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: jamup-worker
+    command: python -m app.services.background_worker
+    volumes:
+      - ./data:/app/data:z
+      - ./config:/app/config:z
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/tasks.db
+      - TASK_MODEL=gpt-oss-20b-assistant:latest
+      - OLLAMA_API_BASE=http://host.containers.internal:11434
+      - WORKER_INTERVAL=120
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  data:

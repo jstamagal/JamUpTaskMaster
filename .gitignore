@@ -1,4 +1,35 @@
-# Ignore my notes
+# User notes
 notes/
 *.log
-*.txt
+
+# Python
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+ENV/
+
+# Database & data
+*.db
+*.db-journal
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+config/local.env
+
+# Containers
+volumes/

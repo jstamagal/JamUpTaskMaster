@@ -1,0 +1,32 @@
+explain-rag) Ok so heres what im trying to do. I am both autistic, CPTSD, and severe short term memory loss. Traditional todo apps just do not work for me. I can literally get in the weeds on 20 or 30 things in a day and maybe progress a couple yards down the track in *every one of them* where I coulda made the whole mile had I been abole to just stay in one task OR just priortize things a bit where even if im not getting a ton of things done i could knock out some of the smaller stuff. So being autistic and having massive CPTSD I am not good at all with traditional todo apps because they *assault me*. ChatGPT literally jumps on me and will not let go of me. I get overwhelemed FAST. What I need is to be able to just fire off things I need to do completely disjointedly, no order, no rhyme or reason, with no explanation and the model does not really expect me to give it any sort of timeframe. I need a couple models to work in tandem whether its using just aichat-ng tooling, or python + cron or anything really. I just need to fire off at a model which ive got 100+ local models to pick from i already have downloaded that work on my GPU and PC.. I fire off tasks that i either am working on, need to work on, ideas, etc. So maybe my workflow goes i hit a shortcut in my compositor (niri) that brings up a menu launcher like wofi or rofi or bemenu that i tpye a quick note or single word it can be anything. Something i know what it means. Lets say qwen 2.5 7b is the secretary and it takes the note down. Then ive got a "game loop" running thats constantly querying lets say.. granite to be thinking about maybe an order and maybe mixtral instruct or something can take what piss poor initial clarification i give it and possibly ascertain without me explicitly saying that "get medicine" is more important than "get a hotdog" it just needs to basically be prompted to act as if it were a human and maybe its being given flash cards of what i fire off at my secretary and it reads them and ranks them, granite sorts it and into a document. Document can get ingested by RAG> Document also can be regularly ingested by a very simple react webapp that AI vibecodes me right quick that all it does is have a one big "pending" listen on a webpage
+Got it, here’s the plan to make your workflow seamless and supportive:
+
+### Workflow Breakdown
+1. **Quick Notes**: You fire off quick notes (keywords) with no order.
+2. **Model as Secretary**: Qwen 2.5 acts like your 'secretary', taking down these notes.
+3. **Granite as Organizer**: Granite handles categorization, scheduling, and feedback.
+4. **RAG Memory & Web App**: Uses RAG memory for retrieval and has a simple webpage tracking pending tasks.
+
+### Technical Steps
+1. **Fire Off Tasks**:
+   - Use a shortcut in your compositor (Niri) to launch a quick note taking tool.
+   - The note can be a single keyword (e.g., "get\_medicine", "write\_email") or anything short and meaningful.
+
+2. **Qwen 2.5 as Secretary**:
+   - Qwen 2.5 ingests the notes.
+   - Ensure it’s running locally and accessible via a command-line interface or API.
+
+3. **Granite for Categorization & Scheduling**:
+   - Granite (your 'game loop') handles sorting and prioritizing tasks.
+   - Granate could periodically (e.g., every 5 minutes) fetch notes from Qwen, analyze them, and categorize/sort them.
+
+4. **RAG Memory Integration**:
+   - When notes are ready to be acted upon, they get ingested into the RAG memory.
+   - This allows context-rich retrieval and more human-like interaction for tasks that span documents.
+
+5. **Simple React Web App**:
+   - A basic React app fetches pending tasks from RAG.
+   - It renders them in a list or card format.
+   - The list updates dynamically as new notes are categorized and sorted by Granite.
+
+   

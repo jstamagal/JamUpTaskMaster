@@ -1,0 +1,353 @@
+#!/usr/bin/env python3
+"""
+JamUpTaskMaster CLI - Terminal-native interface
+Usage: jt <command> [args]
+"""
+import sys
+import os
+import json
+import urllib.request
+import urllib.error
+from datetime import datetime
+
+API_BASE = os.getenv("JAMUP_API_BASE", "http://localhost:8000")
+
+# Colors for terminal output
+class C:
+    RED = '\033[91m'
+    ORANGE = '\033[93m'
+    YELLOW = '\033[93m'
+    GREEN = '\033[92m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GRAY = '\033[90m'
+    BOLD = '\033[1m'
+    END = '\033[0m'
+
+def api_call(endpoint, method="GET", data=None):
+    """Make API call"""
+    url = f"{API_BASE}{endpoint}"
+    headers = {"Content-Type": "application/json"}
+
+    if data:
+        data = json.dumps(data).encode('utf-8')
+
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.URLError as e:
+        print(f"{C.RED}Error: Can't reach API at {API_BASE}{C.END}")
+        print(f"{C.GRAY}Make sure the service is running: ./run.sh{C.END}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"{C.RED}Error: {e}{C.END}")
+        sys.exit(1)
+
+def get_priority_color(score):
+    """Get color for priority score"""
+    if score >= 0.9:
+        return C.RED
+    elif score >= 0.7:
+        return C.ORANGE
+    elif score >= 0.5:
+        return C.YELLOW
+    else:
+        return C.GRAY
+
+def cmd_list(status="active"):
+    """List tasks"""
+    data = api_call(f"/api/tasks?status={status}&limit=50")
+    tasks = data.get("tasks", [])
+
+    if not tasks:
+        print(f"{C.GRAY}No {status} tasks{C.END}")
+        return
+
+    print(f"\n{C.BOLD}{status.upper()} TASKS{C.END}\n")
+
+    for i, task in enumerate(tasks):
+        task_id = task['id']
+        text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+        priority = task.get('priority_score', 0.5)
+        color = get_priority_color(priority)
+
+        # Flags
+        flags = []
+        if task.get('is_life_critical'):
+            flags.append(f"{C.RED}[CRITICAL]{C.END}")
+        if task.get('is_quick_win'):
+            flags.append(f"{C.GREEN}[QUICK]{C.END}")
+
+        flag_str = " ".join(flags)
+
+        # Category
+        cat = task.get('category', '')
+        cat_str = f"{C.CYAN}[{cat}]{C.END} " if cat else ""
+
+        print(f"{color}[{task_id}]{C.END} {cat_str}{text} {flag_str}")
+
+        # Show priority if high
+        if priority >= 0.7:
+            print(f"     {C.GRAY}Priority: {priority:.2f}{C.END}")
+
+    print()
+
+def cmd_add(text):
+    """Add a task"""
+    if not text:
+        print(f"{C.RED}Usage: jt add <text>{C.END}")
+        sys.exit(1)
+
+    data = api_call("/api/tasks/capture", "POST", {"raw_input": text})
+    print(f"{C.GREEN}✓{C.END} Task captured: {C.GRAY}{text}{C.END}")
+
+def cmd_show(task_id):
+    """Show task details"""
+    try:
+        task_id = int(task_id)
+    except:
+        print(f"{C.RED}Invalid task ID{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+
+    print(f"\n{C.BOLD}TASK [{task['id']}]{C.END}")
+    print(f"{C.CYAN}Text:{C.END} {task.get('processed_text') or task.get('raw_input')}")
+
+    if task.get('raw_input') != task.get('processed_text'):
+        print(f"{C.GRAY}Original:{C.END} {task['raw_input']}")
+
+    print(f"{C.CYAN}Status:{C.END} {task['status']}")
+    print(f"{C.CYAN}Priority:{C.END} {task.get('priority_score', 0):.2f}")
+
+    if task.get('category'):
+        print(f"{C.CYAN}Category:{C.END} {task['category']}")
+
+    if task.get('is_life_critical'):
+        print(f"{C.RED}LIFE CRITICAL{C.END}")
+
+    if task.get('is_quick_win'):
+        print(f"{C.GREEN}Quick win (< 10 min){C.END}")
+
+    if task.get('notes'):
+        print(f"{C.CYAN}Notes:{C.END} {task['notes']}")
+
+    created = task.get('created_at', '')
+    if created:
+        print(f"{C.GRAY}Created: {created}{C.END}")
+
+    print()
+
+def cmd_md(task_id):
+    """Mark done"""
+    try:
+        task_id = int(task_id)
+    except:
+        print(f"{C.RED}Invalid task ID{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"status": "done"})
+    print(f"{C.GREEN}✓{C.END} Done: {C.GRAY}{text}{C.END}")
+
+def cmd_po(task_id, days=3):
+    """Put off (TODO: implement proper scheduling)"""
+    try:
+        task_id = int(task_id)
+        days = int(days) if isinstance(days, str) else days
+    except:
+        print(f"{C.RED}Invalid arguments{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    # For now just mark as "put_off" - we'll add proper date handling later
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"status": "put_off"})
+    print(f"{C.YELLOW}⏸{C.END} Put off: {C.GRAY}{text}{C.END}")
+
+def cmd_li(task_id):
+    """Lost interest"""
+    try:
+        task_id = int(task_id)
+    except:
+        print(f"{C.RED}Invalid task ID{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"status": "lost_interest"})
+    print(f"{C.GRAY}⊘{C.END} Lost interest: {C.GRAY}{text}{C.END}")
+
+def cmd_fo(task_id):
+    """Fuck off"""
+    try:
+        task_id = int(task_id)
+    except:
+        print(f"{C.RED}Invalid task ID{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    api_call(f"/api/tasks/{task_id}", "PATCH", {"status": "fuck_off"})
+    print(f"{C.RED}✖{C.END} Fuck off: {C.GRAY}{text}{C.END}")
+
+def cmd_del(task_id):
+    """Delete task"""
+    try:
+        task_id = int(task_id)
+    except:
+        print(f"{C.RED}Invalid task ID{C.END}")
+        sys.exit(1)
+
+    task = api_call(f"/api/tasks/{task_id}")
+    text = task.get('processed_text') or task.get('raw_input', 'Unknown')
+
+    # Confirm
+    print(f"{C.YELLOW}Really delete?{C.END} {text}")
+    confirm = input("Type 'yes' to confirm: ")
+    if confirm.lower() != 'yes':
+        print("Cancelled")
+        return
+
+    api_call(f"/api/tasks/{task_id}", "DELETE")
+    print(f"{C.RED}✖{C.END} Deleted: {C.GRAY}{text}{C.END}")
+
+def cmd_next():
+    """Get AI suggestion for what to do next"""
+    print(f"{C.GRAY}Thinking...{C.END}")
+    data = api_call("/api/tasks/suggestions")
+    print(f"\n{C.CYAN}AI Suggestion:{C.END}\n")
+    print(data.get('suggestions', 'No suggestions'))
+    print()
+
+def cmd_stats():
+    """Show stats"""
+    data = api_call("/api/tasks/stats/overview")
+
+    print(f"\n{C.BOLD}STATS{C.END}\n")
+    print(f"{C.CYAN}Total tasks:{C.END} {data.get('total', 0)}")
+
+    by_status = data.get('by_status', {})
+    for status, count in by_status.items():
+        print(f"  {status}: {count}")
+
+    if data.get('life_critical_active', 0) > 0:
+        print(f"\n{C.RED}Life critical tasks:{C.END} {data['life_critical_active']}")
+
+    if data.get('quick_wins', 0) > 0:
+        print(f"{C.GREEN}Quick wins available:{C.END} {data['quick_wins']}")
+
+    if data.get('high_priority', 0) > 0:
+        print(f"{C.ORANGE}High priority:{C.END} {data['high_priority']}")
+
+    print()
+
+def cmd_process():
+    """Manually trigger processing"""
+    print(f"{C.GRAY}Processing captured tasks...{C.END}")
+    data = api_call("/api/tasks/process", "POST")
+    count = data.get('count', 0)
+    if count > 0:
+        print(f"{C.GREEN}✓{C.END} Processed {count} tasks")
+    else:
+        print(f"{C.GRAY}No tasks to process{C.END}")
+
+def show_help():
+    """Show help"""
+    print(f"""
+{C.BOLD}JamUpTaskMaster CLI{C.END}
+
+{C.CYAN}USAGE:{C.END}
+  jt ls              List active tasks
+  jt add <text>      Add a task
+  jt show <id>       Show task details
+
+  jt md <id>         Mark done
+  jt po <id> [days]  Put off (default 3 days)
+  jt li <id>         Lost interest (comes back in 2 weeks)
+  jt fo <id>         Fuck off (archive it)
+  jt del <id>        Delete (asks for confirmation)
+
+  jt next            AI suggestion for what to do
+  jt stats           Show overview
+  jt process         Manually trigger processing
+
+  jt help            Show this help
+
+{C.CYAN}EXAMPLES:{C.END}
+  jt add "order pillows walmart"
+  jt ls
+  jt md 0
+  jt po 1 7
+  jt fo 2
+
+{C.CYAN}CONFIG:{C.END}
+  JAMUP_API_BASE     API endpoint (default: http://localhost:8000)
+""")
+
+def main():
+    if len(sys.argv) < 2:
+        cmd_list()
+        return
+
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+
+    if cmd in ["ls", "list"]:
+        status = args[0] if args else "active"
+        cmd_list(status)
+    elif cmd in ["add", "a"]:
+        cmd_add(" ".join(args))
+    elif cmd in ["show", "s"]:
+        if not args:
+            print(f"{C.RED}Usage: jt show <id>{C.END}")
+            sys.exit(1)
+        cmd_show(args[0])
+    elif cmd in ["md", "done"]:
+        if not args:
+            print(f"{C.RED}Usage: jt md <id>{C.END}")
+            sys.exit(1)
+        cmd_md(args[0])
+    elif cmd in ["po", "putoff"]:
+        if not args:
+            print(f"{C.RED}Usage: jt po <id> [days]{C.END}")
+            sys.exit(1)
+        days = int(args[1]) if len(args) > 1 else 3
+        cmd_po(args[0], days)
+    elif cmd in ["li", "lost"]:
+        if not args:
+            print(f"{C.RED}Usage: jt li <id>{C.END}")
+            sys.exit(1)
+        cmd_li(args[0])
+    elif cmd in ["fo", "fuckoff"]:
+        if not args:
+            print(f"{C.RED}Usage: jt fo <id>{C.END}")
+            sys.exit(1)
+        cmd_fo(args[0])
+    elif cmd in ["del", "delete", "rm"]:
+        if not args:
+            print(f"{C.RED}Usage: jt del <id>{C.END}")
+            sys.exit(1)
+        cmd_del(args[0])
+    elif cmd in ["next", "suggest"]:
+        cmd_next()
+    elif cmd in ["stats", "st"]:
+        cmd_stats()
+    elif cmd in ["process", "proc"]:
+        cmd_process()
+    elif cmd in ["help", "h", "-h", "--help"]:
+        show_help()
+    else:
+        print(f"{C.RED}Unknown command: {cmd}{C.END}")
+        print(f"Run {C.CYAN}jt help{C.END} for usage")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
