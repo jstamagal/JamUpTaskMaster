@@ -21,7 +21,11 @@ jt md 0            # Mark task 0 done
 jt po 1 3          # Put off task 1 for 3 days
 jt li 2            # Lost interest in task 2
 jt fo 3            # Fuck off task 3 (archive)
+jt pin 4           # Pin task 4 to top
+jt bump 5          # Increase priority
 jt next            # Ask AI what to do
+jt chat            # Interactive conversation
+jt web             # Open dashboard
 jt stats           # See overview
 ```
 
@@ -52,10 +56,27 @@ jt fo 0            # Fuck off (archived)
 jt del 0           # Delete (asks confirmation)
 ```
 
+### Priority Management
+```bash
+jt pin 0           # Pin task 0 to top (priority 1.0)
+jt bump 1          # Increase priority by 0.1
+jt bump 1 0.2      # Increase priority by 0.2
+jt drop 2          # Decrease priority by 0.1
+jt drop 2 0.3      # Decrease priority by 0.3
+jt prio 3 0.8      # Set priority to exactly 0.8
+```
+
 ### AI Interaction
 ```bash
 jt next            # AI suggests what to do based on current state
 jt process         # Manually trigger processing (usually auto every 2min)
+jt chat            # Interactive chat with assistant (with task context)
+jt chat "help me"  # Single question mode
+```
+
+### Utilities
+```bash
+jt web             # Open dashboard in browser (auto-starts backend if needed)
 ```
 
 ### Status Overview
