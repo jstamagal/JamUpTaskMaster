@@ -61,6 +61,12 @@
                 <button onclick="refreshTasks()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm font-medium">
                     Refresh
                 </button>
+                <button onclick="toggleSettings()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-medium">
+                    <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -116,20 +122,28 @@
                 return;
             }
 
-            // Sort by priority (high to low)
-            const sorted = [...tasks].sort((a, b) => b.priority_score - a.priority_score);
+            // Sort by priority (high to low), pinned first
+            const sorted = [...tasks].sort((a, b) => {
+                if (a.pinned && !b.pinned) return -1;
+                if (!a.pinned && b.pinned) return 1;
+                return b.priority_score - a.priority_score;
+            });
 
-            // Show top 10
-            const visible = sorted.slice(0, 10);
+            // Show top N based on settings
+            const visible = sorted.slice(0, userSettings.display_count);
 
-            container.innerHTML = visible.map(task => `
+            container.innerHTML = visible.map((task, index) => {
+                const displayId = userSettings.zero_indexed ? index : index + 1;
+                return `
                 <div class="task-card bg-gray-800 rounded-lg p-4 ${getPriorityClass(task.priority_score)}">
                     <div class="flex justify-between items-start mb-2">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
+                                <span class="text-indigo-400 font-mono text-sm mr-2">[${displayId}]</span>
                                 <span class="font-medium text-lg text-gray-100">
                                     ${task.processed_text || task.raw_input}
                                 </span>
+                                ${task.pinned ? '<span class="text-xs px-2 py-1 bg-indigo-900 text-indigo-300 rounded ml-2">📌 PINNED</span>' : ''}
                             </div>
                             ${task.raw_input !== task.processed_text ? `
                                 <div class="text-sm text-gray-500 italic">
@@ -165,7 +179,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function renderCompleted() {
@@ -340,10 +355,132 @@
                 sendChatMessage();
             }
         }
+
+        // Settings functions
+        let userSettings = {
+            display_count: 10,
+            zero_indexed: false,
+            auto_refresh_interval: 30
+        };
+
+        function loadSettings() {
+            // Load from localStorage
+            const saved = localStorage.getItem('jamup_settings');
+            if (saved) {
+                userSettings = JSON.parse(saved);
+            }
+
+            // Apply to form
+            document.getElementById('setting-display-count').value = userSettings.display_count;
+            document.getElementById('setting-zero-indexed').checked = userSettings.zero_indexed;
+            document.getElementById('setting-refresh-interval').value = userSettings.auto_refresh_interval;
+
+            // Apply to page
+            applySettings();
+        }
+
+        function updateSettings() {
+            // Read from form
+            userSettings.display_count = parseInt(document.getElementById('setting-display-count').value);
+            userSettings.zero_indexed = document.getElementById('setting-zero-indexed').checked;
+            userSettings.auto_refresh_interval = parseInt(document.getElementById('setting-refresh-interval').value);
+
+            // Save to localStorage
+            localStorage.setItem('jamup_settings', JSON.stringify(userSettings));
+
+            // Apply settings
+            applySettings();
+        }
+
+        function applySettings() {
+            // Update refresh interval
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            refreshInterval = setInterval(fetchTasks, userSettings.auto_refresh_interval * 1000);
+
+            // Refresh display with new settings
+            fetchTasks();
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            const isHidden = modal.classList.contains('hidden');
+            if (isHidden) {
+                loadSettings();  // Reload settings when opening
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Load settings on page load
+        loadSettings();
     </script>
 
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-gray-900 border border-indigo-500/30 rounded-lg shadow-2xl w-full max-w-md mx-4">
+            <!-- Settings Header -->
+            <div class="bg-indigo-600 p-4 rounded-t-lg flex justify-between items-center">
+                <h3 class="font-bold text-white">Settings</h3>
+                <button onclick="toggleSettings()" class="text-white hover:text-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Settings Content -->
+            <div class="p-6 space-y-6">
+                <!-- Display Count -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Task Display Count
+                    </label>
+                    <input type="number" id="setting-display-count" min="5" max="50"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                        onchange="updateSettings()"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">Number of tasks to show (5-50)</p>
+                </div>
+
+                <!-- Zero Indexed -->
+                <div>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="setting-zero-indexed"
+                            class="w-4 h-4 text-indigo-600 bg-gray-800 border-gray-700 rounded focus:ring-indigo-500"
+                            onchange="updateSettings()"
+                        />
+                        <span class="ml-3 text-sm font-medium text-gray-300">Zero-indexed task IDs</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1 ml-7">Start counting from 0 instead of 1</p>
+                </div>
+
+                <!-- Auto Refresh Interval -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Auto-refresh Interval (seconds)
+                    </label>
+                    <input type="number" id="setting-refresh-interval" min="10" max="300" step="10"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                        onchange="updateSettings()"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">How often to refresh tasks (10-300 seconds)</p>
+                </div>
+
+                <!-- Save Button -->
+                <div class="pt-4 border-t border-gray-700">
+                    <button onclick="toggleSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-white font-medium">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Floating Chat Button -->
-    <button onclick="toggleChat()" class="fixed bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50">
+    <button onclick="toggleChat()" class="fixed bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
         </svg>

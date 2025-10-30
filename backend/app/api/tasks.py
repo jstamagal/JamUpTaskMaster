@@ -4,6 +4,7 @@ from sqlalchemy import select, update
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
+import os
 
 from app.database import get_session
 from app.models.task import Task
@@ -329,4 +330,35 @@ Be conversational, supportive, and direct. No corporate speak. Be real with them
     return {
         "response": response,
         "task_count": len(active_tasks)
+    }
+
+
+class SettingsUpdate(BaseModel):
+    display_count: Optional[int] = None
+    zero_indexed: Optional[bool] = None
+    auto_refresh_interval: Optional[int] = None
+
+
+@router.get("/settings")
+async def get_settings():
+    """Get current settings"""
+    # For now, return defaults - can be extended to DB storage later
+    return {
+        "display_count": int(os.getenv("DISPLAY_COUNT", "10")),
+        "zero_indexed": os.getenv("ZERO_INDEXED", "false").lower() == "true",
+        "auto_refresh_interval": int(os.getenv("AUTO_REFRESH_INTERVAL", "30")),
+    }
+
+
+@router.patch("/settings")
+async def update_settings(settings: SettingsUpdate):
+    """
+    Update settings (stored in memory for now)
+    TODO: Persist to config file or DB
+    """
+    # For now just return what was sent
+    # In future, write to config file or DB
+    return {
+        "message": "Settings updated (in-memory only for now)",
+        "settings": settings.dict(exclude_none=True)
     }
